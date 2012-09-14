@@ -49,6 +49,12 @@ public class Inn {
           inn.updateQuality();
         } else {
           body = itemsAsJson();
+
+          String query = exchange.getRequestURI().getQuery();
+          if (null != query) {
+            String callback = query.split("[&=]")[1];
+            body = callback + "(" + body + ")";
+          }
         }
 
         byte[] response = body.getBytes();
