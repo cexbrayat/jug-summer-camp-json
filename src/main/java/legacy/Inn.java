@@ -1,5 +1,13 @@
 package legacy;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.Lists;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,60 +29,41 @@ public class Inn {
   }
 
   public void updateQuality() {
-    for (int i = 0; i < items.size(); i++) {
-      if (!items.get(i).getName().equals("Aged Brie") && !items.get(i).getName().equals("Backstage passes to a TAFKAL80ETC concert")) {
-        if (items.get(i).getQuality() > 0) {
-          if (!items.get(i).getName().equals("Sulfuras, Hand of Ragnaros")) {
-            items.get(i).setQuality(items.get(i).getQuality() - 1);
-          }
-        }
-      } else {
-        if (items.get(i).getQuality() < 50) {
-          items.get(i).setQuality(items.get(i).getQuality() + 1);
-
-          if (items.get(i).getName().equals("Backstage passes to a TAFKAL80ETC concert")) {
-            if (items.get(i).getSellIn() < 11) {
-              if (items.get(i).getQuality() < 50) {
-                items.get(i).setQuality(items.get(i).getQuality() + 1);
-              }
-            }
-
-            if (items.get(i).getSellIn() < 6) {
-              if (items.get(i).getQuality() < 50) {
-                items.get(i).setQuality(items.get(i).getQuality() + 1);
-              }
-            }
-          }
-        }
-      }
-
-      if (!items.get(i).getName().equals("Sulfuras, Hand of Ragnaros")) {
-        items.get(i).setSellIn(items.get(i).getSellIn() - 1);
-      }
-
-      if (items.get(i).getSellIn() < 0) {
-        if (!items.get(i).getName().equals("Aged Brie")) {
-          if (!items.get(i).getName().equals("Backstage passes to a TAFKAL80ETC concert")) {
-            if (items.get(i).getQuality() > 0) {
-              if (!items.get(i).getName().equals("Sulfuras, Hand of Ragnaros")) {
-                items.get(i).setQuality(items.get(i).getQuality() - 1);
-              }
-            }
-          } else {
-            items.get(i).setQuality(items.get(i).getQuality() - items.get(i).getQuality());
-          }
-        } else {
-          if (items.get(i).getQuality() < 50) {
-            items.get(i).setQuality(items.get(i).getQuality() + 1);
-          }
-        }
-      }
+    for (Item item : items) {
+      new ItemUpdater(item).updateQuality();
     }
-
   }
 
-  public static void main(String[] args) {
-    System.out.println("OMGHAI!");
-    new Inn().updateQuality();
+  public static void main(String[] args) throws Exception {
+    HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
+    server.createContext("/", new HttpHandler() {
+      final Inn inn = new Inn();
+
+      @Override
+      public void handle(HttpExchange exchange) throws IOException {
+        String body = "";
+
+        if ("/update".equals(exchange.getRequestURI().getPath())) {
+          inn.updateQuality();
+        } else {
+          body = itemsAsJson();
+        }
+
+        byte[] response = body.getBytes();
+        exchange.sendResponseHeaders(200, response.length);
+        exchange.getResponseBody().write(response);
+        exchange.close();
+      }
+
+      private String itemsAsJson() {
+        List<String> json = Lists.newArrayList();
+        for (Item item : inn.getItems()) {
+          json.add(String.format("{\"name\":\"%s\", \"quality\":\"%d\", \"sellIn\":\"%d\"}", item.getName(), item.getQuality(), item.getSellIn()));
+        }
+        return "[" + Joiner.on(",").join(json) + "]";
+      }
+    });
+    server.start();
+
   }
 }
